@@ -1,8 +1,9 @@
 ---
-- name: Install Prometheus Node Exporter and Prometheus
+
+- name: Install Prometheus Node Exporter and Prometheus and Grafana
   hosts: remote-hosts
   become: true
-  
+
   tasks:
     - name: Install Prometheus Node Exporter
       apt:
@@ -16,7 +17,7 @@
         name: prometheus-node-exporter
         state: restarted
 
-- name: Install and Configure Prometheus
+- name: Install and Configure Prometheus and Grafana
   hosts: localhost
   become: true
 
@@ -24,13 +25,13 @@
     prometheus_sysctl:
       net.core.somaxconn: 65535
       net.ipv4.ip_local_port_range: "1024 65535"
-      
+
   tasks:
     - name: Download and Install Prometheus
       get_url:
         url: https://github.com/prometheus/prometheus/releases/download/v2.30.3/prometheus-2.30.3.linux-amd64.tar.gz
         dest: /tmp/prometheus.tar.gz
-        
+
     - name: Extract Prometheus
       unarchive:
         src: /tmp/prometheus.tar.gz
@@ -72,8 +73,34 @@
       systemd:
         daemon_reload: yes
 
-    - name: Enable and start Prometheus service
+    - name: Install Grafana via apt
+      become: true
+      apt_repository:
+        repo: "deb https://packages.grafana.com/oss/deb stable main"
+        state: present
+        update_cache: yes
+
+    - name: Add Grafana GPG key
+      apt_key:
+        url: https://packages.grafana.com/gpg.key
+        state: present
+
+    - name: Install Grafana via apt
+      apt:
+        name: grafana
+        state: present
+
+    - name: Create Grafana service file
+      template:
+        src: config_files/grafana.service.j2
+        dest: /etc/systemd/system/grafana.service
+
+    - name: Reload Systemd daemon
       systemd:
-        name: prometheus
+        daemon_reload: yes
+
+    - name: Enable and start Grafana service
+      systemd:
+        name: grafana
         state: started
-        enabled: true
+        enabled: yes
